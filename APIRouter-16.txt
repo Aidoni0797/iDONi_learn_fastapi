@@ -1,0 +1,135 @@
+Маршрутизация с помощью класса APIRouter
+
+Класс APIRouter принадлежит пакету FastAPI и создает операции пути для нескольких маршрутов.
+Класс APIRouter поощряет модульность и организацию маршрутизации и логики приложений.
+
+Класс APIRouter импортируется из пакета fastapi и создается экземпляр. Методы маршрута 
+создаются и распространяются из созданного экземпляра, например:
+
+from fastapi import APIRouter
+
+router = APIRouter()
+
+@router.get("/hello")
+async def say_hello()->dict:
+	return {"message": "Hello!"}
+
+Давайте создадим новую операцию пути с классом APIRouter для создания и получения задач.
+В папке todos из предыдущей главы создайте новый файл todo.py:
+
+(venv) $ touch todo.py
+
+Начнем с импорта класса APIRouter из пакета fastapi и создания экземпляра:
+
+from fastapi import APIRouter
+
+todo_routeer = APIRouter()
+
+Далее мы создадим временную базу данных в приложении, а также два маршрута для добавления
+и извлечения задач:
+
+todo_list = []
+
+@todo_router.post("/todo")
+async def add_todo(todo:dict)->dict:
+	todo_list.append(todo)
+	return {"message": "Todo added successfully"}
+
+@todo_router.get("/todo")
+async def retrieve_todos()->dict:
+	return {"todos": todo_list}
+
+В предыдущем блоке кода мы создали два маршрута для наших операций с задачами. Первый маршрут
+добавляет задачу в список задач с помощью метода GET.
+
+Мы завершили операции пути для маршрута todo. Следующим шагом является передача приложения
+в производство, чтобы мы могли  протестировать определенные операции пути.
+
+Класс APIRouter работает так же, как и класс FastAPI. Однако uvicorn не может использовать
+экземпляр APIRouter для обслуживания прилжения, в отличие от FastAPIs.
+
+Маршруты, определенные с помощью класса APIRouter, добавляются в экземпляр fastapi
+для обеспечения их видимости.
+
+Чтобы обеспечить видимость маршрутов todo, мы включим обработчик операций пути todo_router 
+в основной экземпляр FastAPI с помощью метода include_router().
+
+include_router()
+Метод include_router(router, ...) отвечает за добавление маршрутов, определенных
+с помощью  класса APIRouter, в экземпляр основного приложения, чтобы сделать маршруты видимыми.
+
+В api.py, import todo_router из todo.py:
+
+from todo import todo_router
+
+Включите todo_router в приложение FastAPI, используя метод include_router из экземпляра
+FastAPI:
+
+from fastapi import FastAPI
+from todo import todo_router
+
+app = FastAPI()
+
+@app.get("/")
+async def welcome()->dict:
+	return{
+		"message": "Hello World"	
+	}
+
+app.include_router(todo_router)
+
+Когда  все на месте, запустите приложение с вашего терминала:
+
+(venv) $ uvicorn api:app --port 8000 --reload
+
+Предыдущая команда запускает наше приложение и дает нам журнал процессов нашего приложения
+в реальном времени:
+
+(venv)-> todos git: (main) x uvicorn api:app --port 8000 --reload
+
+INFO: Will watch for changes in these directories:['/Users/youngestdev/Work/Building-Web-APIs-
+with-FastAPI-and-Python/ch02/todos']
+INFO: uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO: Started reloader process [4732] using atatreload
+INFO: Started server process [4734]
+INFO: Waiting for application startup.
+INFO: Application startup complete.
+
+Следующий шаг - протестировать приложение, отправив запрос GET с помощью curl:
+
+(venv) $ curl http://0.0.0.0:8080/
+
+Ответ от приложения, в консоли:
+{"message": "Hello World"}
+
+Далее мы проверяем работоспособость todo-маршрутов:
+
+(venv)$ curl -X 'GET' \
+	'http://127.0.0.1:8000/todo' \
+	-H 'accept: application/json'
+
+Ответ от приложения в консоли должна быть следующим:
+{
+	"todos": []
+}
+
+Маршрут todo сработал! Давайте проверим операцию POST, отправив запрос на добавление 
+эелемента в наш список задач:
+(venv)$ curl -X 'POST' \
+	'http://127.0.0.1:8000/todo' \
+	-H 'accept: application/json' \
+	-H 'Content-Type: application/json' \
+	-d '{
+		"id": 1,
+		"item": "First Todo is to finish this book!"
+	}'
+
+Имеем следующий ответ:
+{
+	"message": "Todo added successfully."
+}
+
+Мы узнали, как работает класс APIRouter и как включить вего в основной экземпляр приложения,
+чтобы разрешить использование определенных операций пути. В маршрутах todo, построенных
+в этом разделе, отсутствовали модели, также известные как схемы. В следующем разделе мы
+рассмотрим модели Pydantic и варианты их использования.

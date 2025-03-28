@@ -1,0 +1,119 @@
+Путь и параметры запроса
+
+В предыдущем разделе мы узнали, что такое модели и как они используются для проверки тела 
+запроса. В этом разделе вы узнаете, что такое параметры пути и запроса, какую роль они
+играют в маршрутизации и как их использовать.
+
+Параметры пути
+Параметры пути - это параметры, включенные в маршрут API для идентификации ресурсов. Эти параметры
+служат идентификатором, а иногда и связующим звеном, позволяющим выполнять дальнейшие
+операции в веб-приложении.
+
+В настоящее время унас есть маршруты для добавления задачи и получения всех задая в нашем
+приложении задач. Давайте создадим новый маршрут для получения одной задачи, добавив 
+идентификатор задачи в качестве параметра пути.
+
+В todo.py добавьте новый маршрут:
+
+from fastapi import APIRouter, Path
+from model import Todo
+
+todo_router = APIRouter()
+
+todo_list = []
+
+@todo_routere.post("/todo")
+async def add_todo(todo:Todo)->dict:
+	todo_list.append(todo)
+	return{
+		"message": "Todo added successfully."
+	}
+
+@todo_router.get("/todo")
+async def retrieve_todo()->dict:
+	return{
+		"todos": todo_list
+	}
+
+
+@todo_router.get("/todo/{rodo_id}")
+async def get_single_todo(todo_id:int=Path(...,title="The ID of the todo to retrieve."))->dict:
+	for todo in todo_list:
+		if todo.id == todo_id:
+			return{
+				"todo": todo
+			}
+	return{
+		"message": "Todo with supplied ID doesn't exist."
+	}
+
+В предыдущем блоке кода, {todo_id} является параметром пути. Этот параметр позволяет приложению
+возвращать совпадающую задачу с переданным идентификатором.
+
+Проверим маршрут:
+
+(venv)$ curl -X 'GET' \
+	'http://127.0.0.1:8000/todo/1'\
+	-H 'accept: application/json'
+
+В предыдущем запросе GET request, 1 - это параметр пути. Здесь мы говорим нашему приложению
+todo вернуть элемент с идентификатором 1.
+
+Выполнение предыдущего запроса приводит к следующему ответу:
+{
+	"todo":{
+		"id":1,
+		"item": "First Todo is to finish this book!"
+	}
+}
+
+FastAPI так же предоставляет класс Path, который отличает параметры пути от других аргументов,
+присутствующиз в функции маршрута. Класс Path также помогает дать параметрам маршрута больше 
+контекста во время документации? автоматически предоставляемой OpenAPI через Swagger and ReDoc,
+и действует как валидатор.
+
+Давайте изменим определение маршрута:
+
+from fastAPI import APIRouter, Path
+from model import Todo
+
+todo_router = APIRouter()
+todo_list = []
+
+@todo_router.post("/todo")
+async def add_todo(todo:Todo)->dict:
+	todo_list.append(todo)
+	return{
+		"message": "Todo added successfully."
+	}
+
+@todo_router.get("/todo")
+async def retrieve_todo()->dict:
+	return{
+		"todos": todo_list
+	}
+
+@todo_router.get("/todo")
+async def retrieve_todo()->dict:
+	return{
+		"todos": todo_list
+	}
+
+@todo_router.get("/todo/{todo_id}")
+asyn def get_single_todo(toso_id:int=Path(...,title="The ID of the todo to retrieve"))->dict:
+	for todo in todo_list:
+		if todo.id == todo_id:
+			return{
+				"todo": todo
+			}
+	return{
+		"message": "Todo with supplied ID doesn't exist."
+	}
+
+Подсказка - Путь (...,kwargs)
+
+Класс Path принимает первый позиционный аргмент, равный None или многоточие (...). Если в качестве
+первого аргумента задано многоточие (...), параметр пути становится обязательным. Класс
+Path также содержит аргументы, используемые для числовой проверки, если параметр пути являются
+числом. Определения включают gt and le - gt означает больше, а le означает меньше. При
+использовании маршрут будет проверять параметр пути на соответствие этим аргументам.

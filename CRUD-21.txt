@@ -1,0 +1,161 @@
+Создание простого CRUD-приложения
+
+Мы создали маршруты для создания и получения задач. Построим маршруты для обновления и удаления
+длбавленных задач. Начнем с создания моедли тела запроса для маршрута UPDATE в model.py:
+
+class TodoItem(BaseModel):
+	item: str
+	
+	class Config:
+		schema_extra = {
+			"example": {
+				"item": "Read th next chapter of the book"
+			}
+		}
+
+Далее давайте напишем маршрут для обновления задачи в todo.py
+
+from fastapi import APIRouter, Path
+from model import Todo, TodoItem
+
+todo_router = []
+
+@todo_router.post("/todo")
+async def add_todo(todo:Todo)->dict:
+	todo_list.append(todo)
+	return {
+		"message": "Todo added successfully."
+	}
+
+@todo_router.get("/todo")
+async def retrieve_todo()->dict:
+	return {
+		"todos": todo_list
+	}
+
+@todo_router.get("/todo/{todo_id}")
+asyn def get_single_todo(todo_id:int=Path(...,title="The ID of the todo to retrieve"))->dict:
+	for todo in todo_list:
+		if todo.id == todo_id:
+			return{
+				"todo": todo
+			}
+	return {
+		"message":"Todo with supplied ID doesn't exist."
+	}
+
+@todo_router.put("/todo/{todo_id}")
+async def update_todo(todo_data:TodoItm, todo_id:int=Path(...,title="The ID of the todo to be updatese"))->dict:
+	for todo in todo_list:
+		if todo.id ==todo_id:	
+			todo.item = todo_data.item
+			return{
+				"message":"Todo updates successfully."
+			}
+	return {
+		"message": "Todo with supplied ID doesn't exist."
+	}
+
+Протестируем новый маршрут. Во-первых, давайте добавим задачу:
+(venv)$curl -X 'POST'\
+	'http://127.0.0.1:8000/todo'\
+	-H 'accept: application/json'\
+	-H 'Content-Type: application/json'\
+	-d '{
+	"id":1,
+	"item":"Example Schema!"
+	}'
+
+Вот ответ:
+(venv)${
+	"message": "Todo added successfully."
+}
+
+Далее давайте обновим задачу, отправив запрос PUT:
+(venv)$ curl -X 'PUT'\
+	'http://127.0.0.1:8000/todo/1'\
+	-H 'accept: application/json'\
+	-H 'Content-Type: application/json'\
+	-d '{
+		"item": "Read the next chapter of the book."
+	}'
+
+Вот ответ:
+(venv)${
+	"message": "Todo updates successfully."
+}
+Давайте проверим, что наша задача действительно была обновлена:
+(venv)$ curl -X 'GET'\
+	'http://127.0.0.1:8000/todo/1'\
+	-H 'accept: application/json'
+
+Вот ответ:
+(venv)${
+	"todo":{
+		"id":1,
+		"item": "Read the next chapter of the book"
+	}
+}
+Из возвращенного ответа мы видим, что задача успешно обновлена. Теперь давайте создадим маршрут
+для удаления задачи и всех задач.
+
+В todo.py, обновите маршруты:
+@todo_router.delete("/todo/{todo_id}")
+async def delete_single_todo(todo_id:int)->dict:
+	for index in range(len(todo_list)):
+		todo = todo_list[index]
+		if todo.id == todo_id:
+			todo_list.pop(index)
+			return{
+				"message": "Todo deleted successfully."
+			}
+	return {
+		"message": "Todo with supplied ID doesn't exist."
+	}
+
+@todo_router.delete("/todo")
+async def delete_all_todo()->dict:
+	todo_list.clear()
+	return {
+		"message": "Todos deleted successfully."
+	}
+
+Давайте протестируем маршрут удаления. Сначала мы добавляем задачу:
+(venv)$curl -X 'POST'\
+	'http://127.0.0.1:8000/todo'\
+	-H 'accept: application/json'\
+	-H 'Content-Type:application/json'\
+	-d{
+		"id":1,
+		"item": "Example Schema!"
+	}
+
+Вот ответ:
+(venv)${
+	"message": "Todo added successfully."
+}
+
+Затем удалите задачу:
+(venv)$ curl -X 'DELETE'\
+	'http://127.0.0.1:8000/todo/1'\
+	-H 'accept: application/json'
+
+Вот ответ:
+(venv)${
+	"message": "Todo deleted successfully."
+}
+
+Давайте проверим, что задача была удалена, отправив запрос GET для получения задачи:
+(venv)$ curl -X 'GET'\
+	'http://127.0.0.1:8000/todo/1'\
+	-H 'accept: application/json'
+
+Вот ответ:
+(venv)${
+	"message": "Todo with supplied ID doesn't exist."
+}
+
+В этом разделе мы создали приложение с CRUD операциями, объединив уроки, извлеченные из
+предыдущих разделов. Подтвердив тело запроса, мы смогли убедиться, что в API отправляются
+правильные данные. Включение параметров пути в наши маршруты также позволило нам получить и
+удалить одну задачу из нашего списка задач.

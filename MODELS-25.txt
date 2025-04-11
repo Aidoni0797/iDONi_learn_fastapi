@@ -1,0 +1,114 @@
+Построение моделей ответа
+
+В начале этой главы мы установилиназначение моделей отклика. В предыдущей главе вы также
+узнали, как создавать модели с помощью Pydantic. Модели регирования также построены на
+Pydantic, но служат другой цели.
+
+В определении путей маршрута мы имеем, например, следуюее:
+
+@app.get("/todo")
+async def retrieve_todo()->dict:
+	return {
+		"todos": todo_list
+	}
+
+Маршрут возвращает список задач, присутствующих в базе данных. Вот пример вывода:
+
+{
+	"todo":[
+		{
+			"id":1,
+			"item": "Example schema 1!"
+		},
+		{	
+			"id":2,
+			"item": "Example schema 2!"
+		},
+		{
+			"id":3,
+			"item": "Example schema 3!"
+		}
+	]
+}
+
+Маршрут возвращает весь контент, хранящийся в массиве todos. Чтобы указать возвращаемую
+информацию, нам пришлось бы либо отделить отображаемые данные, либо ввести дополнительную
+логику. К счастью, мы можем создать модель, содержащую поля, которые мы хотим вернуть,
+и добавить ее в определение нашего маршрута, используя аргумент response_model.
+
+Давайте обновим маршрут, который извлекает все задачи, чтобы он возвращал массив только
+элементов задач, а не идентификаторов. Начнем с определения нового класса модели для
+возврата списка дел в models.py
+
+from typing import List
+
+class TodoItem(BaseModel):
+	item:str
+	
+	class Config:
+		schema_extra = {
+			"example":{
+				"item": "Read the next chapter of the book"
+			}
+		}
+
+class TodoItems(BaseModel):
+	todos: List[TodoItem]
+	
+	class ConfigL
+		schema_extra = {
+			"example":[
+				{
+					"item": "Example schema 1!"
+				},
+				{
+					"item": "Example schema 2!"
+				},
+			]
+		}
+
+В предыдущем блоке кода мы определил новую модель, TodoItems, которая возвращает список
+переменных, содержащихся в модели TodoItem. Давайте обновим наш маршрут в todo.py добавив
+в него модель ответа:
+
+from model import Todo, TodoItem, TodoItems
+
+@todo_router.get("/todo", response_model=TodoItems)
+async def retrieve_todo()->dict:
+	return{
+		"todos": todo_list
+	}
+
+Активируйте виртуальную среду и запустите приложение:
+$source venv/bin/activate
+(venv)$uvicorn api:app --host=0.0.0.0 --port 8000 --reload
+
+Затем добавьте новую задачу:
+
+(venv)$ curl -X 'POST' \
+	'http://127.0.0.1:8000/todo' \
+	-H 'accept: application/json' \
+	-H 'Content-Type: application/json' \
+	-d '{
+		"id":1,
+		"item":"This todo will be retrieved without exposing my ID!"
+	}'
+
+Получить список дел:
+
+(venv)$ curl -X 'GET' \
+	'http://127.0.0.1:8000/todo'\
+	-H 'accept:application/json'
+
+Полученный ответ выглядит следующим образом:
+{
+	"todos":[
+		{
+			"item": "This todo will be retrieved without exposing my ID!"
+		}
+	]
+}
+
+Теперь, когда мы узнали, что такое модели реагирования и как их использовать, мы продолжим 
+использовать их там, где они подходят, в последующих главах. Давайте рассмотрим ответы на 
+ошибки и способы обработки ошибок в следующем разделе.

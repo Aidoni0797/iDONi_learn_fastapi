@@ -1,0 +1,226 @@
+Использование шаблонов Jinja в FastAPI
+Для начала нам нужно установить пакет Jinja и создать новую папку, templates, в каталоге
+нашего проекта. В этой папке будут храниться все наши файлы Jinja, которые представляют
+собой файлы HTML, смешанные с синтаксисом Jinja. Поскольку эта книга не посвящена дизайну 
+пользовательского интерфейса, мы будем использовать бибилиотеку CSS Bootstrap и не будем писать
+собственные стили.
+
+Библиотека Bootstrap будет загружена из CDN при загрузке страницы. Однако дополнительные
+активы можно хранить в другой папке. Мы рассмотрим обслуживание статических файлов
+в следующей главе.
+
+Мы начнем с создания шаблона домашней страницы, на котором будет размещен раздел для создания
+новых задач. Ниже приведен макет того, как мы хотим, чтобы наш шаблон домашней страницы выглядел:
+Макет нашего габлона домашней страницы
+
+1. Во-первых, давайте установим пакет Jinja и создадим папку templates:
+(venv)$ pip install jinja2
+(venv)$mkdir templates
+
+2. Во вновь созданной папке создайте два новых файла, home.html and todo.html:
+(venv)$ cd templates
+(venv)$ touch{home, todo}.html
+
+В предыдущем командном блоке мы создали два файла шаблона:
+-home.html для главной страницы приложения
+-todo.html для страницы задач
+
+В макете внутреннее поле обозначает шаблон todo, а большее полее - шаблон домашней страницы.
+
+Прежде чем перейти к созданию наших шаблонов, давайте настроим Jinja в нашем приложении FastAPI:
+1. Давайте изменим POST маршрут компонента API задач, todo.py:
+
+from fastapi import APIRouter, Path, HTTPException, status, Request, Depends
+from fastapi.templating import Jinja2Templates
+from model import Todo, TodoItem, TodoItems
+
+todo_router = APIRouter()
+
+todo_list = []
+
+templates = Jinja2Templates(directory="templates/")
+
+@todo_router.post("/todo")
+async def add_todo(request:Request, todo:Todo=Dependes(Todo.as_form)):
+	todo.id = len(todo_list) + 1
+	todo_list.append(todo)
+	return templates.TemplateResponse("todo.html",
+	{
+		"request": request,
+		"todos": todo_list
+	}
+	)
+
+2.Затем обновите маршруты GET:
+
+@todo_router.get("/todo", response_model=TodoItems)
+async def retrieve_todo(request:Request)
+	return templates.TemplateResponse("todo.html", {
+		"request": request,
+		"todos": todo_list
+	})
+
+@todo_router.get("/todo/{todo_id}")
+async def get_single_todo(request:Request, todo_id:int=Path(...,title="The ID of the todo the retrieve.")):
+	for todo in todo_list:
+		if todo.id == todo_id:
+			return templates.TemplateResponse(
+			"todo.html", {
+				"request": request,
+				"todo": todo
+			})
+	raise HTTPException(
+		status_code = status.HTTP_404_NOT_FOUND,
+		detail="Todo with supplied ID doesn't exist",
+	)
+
+В предыдущем блоке кода мы настроили Jinja для просмотра каталога templates для обслуживания
+шаблонов, переданных в templates.
+
+Метод TemplateResponse().
+Метод для добавления задачи также был обновлен, чтобы включить зависимость от переданного
+ввода. Зависимости будут подробно обсуждаться в Главе6 "Подключение к базе данных".
+3. В model.py добавьте выделенный код перед классом Config
+
+from typing import List, Optional
+
+class Todo(BaseModel):
+	id: Optional[int]
+	item: str
+	
+	@classmethod
+	def as_form(
+		cls,
+		item: str=Form(...)
+	):
+		return cls(item=item)
+
+Теперь, когда мы обновили наш код API, давайте напишем наши шаблоны. Мы начнем с написания
+базового шаблона home.html на следующем шаге.
+
+4. В home.html, мы начнем с объявления типа документа:
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta http-equiv="X-UA-Compatible" content="IE-edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>Packt Todo Application</title>
+		<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/
+						bootstrap/4.1.0/css/bootstrap.min.css"
+		integrity="sha384-9gVQ4dYFwwWSjIDZnLFwO5qRGvFXOdJZ4"
+		crossorigin="anonymous">
+		<link rel="stylesheet" href="https://use.fontawesome.com/rleases/v5.0.10/css/all.css"
+		integriry="sha384-+d0P83n9kaQMCwj8F4RJB66tzIwOKmrdb46+porD/OvrJ+37WqIM7U0BtwHO6Nlg"
+		crossorigin="anonymous">
+	</head>
+
+5.  Следующим шагом является написание содержимого для тела шаблона. В тело шаблона мы включим имя приложения
+под тегом <header></header> и ссылку на todo_container дочерного шаблона, заключенную
+в тег блока. Дочерний шаблон будет написан на шаге 8.
+
+Включите следющий код сразу после тега </head> в файл шаблона home.html:
+<body>
+	<header>
+		<nav class = "navar">
+			<div class = "container-fluid">
+				<center>
+					<h1>Packt Todo Application</h1>
+				</center>
+			</div>
+		</nav>
+	</header>
+	<div class="container-fluid">
+		{% block todo_container %}{% endblock %}
+	</div>
+</body>
+</html>
+</html>
+
+Выделенный код сообщает родительскому шаблону, что блок todo_container будет определяться
+дочерним шаблоном. Содержимое дочернего шаблона, содержащего блок todo_container и
+расширяющего родительский шаблон, будет отображаться там.
+
+6. Чтобы увидеть изменения, активируйте виртуальную среду и запустите приложение:
+$ source venv/bin/activate
+(venv)$uvicorn api:app --host=0.0.0.0 --port 8000 --reload
+
+7. Откройте http://127.0.0.1:8000/todo, чтобы посмотреть изменения:
+
+8. Далее напишем шаблон todo в todo.html:
+
+{% extends "home.html" %}
+{% block todo_container %}
+<main class = "container">
+	<hr>
+	<section class="container-fluid">
+		<form method="post">
+			<div class="col-auto">
+				<div class="input-group mb-3">
+					<input type="text" name="item"
+					value="{{item}}" class="form-control"
+					placeholder="Purchase Packt's Python workshop course"
+					aria-label="Add a todo"
+					aria-describedby="button-addon2"/>
+					<button class="btn btn-outline-primary" type="submit"
+					id="button-addon2" data-mdb-ripple-color="dark">
+						Add Todo
+					</button>
+				</div>
+			</div>
+		</form>
+	</section>
+	{% if todo %}
+		<article class="card container-fluid">
+			<br/>
+			<h4>Todo ID: {{todo.id}} </h4>
+			<p>
+				<strong>
+					Item: {{todo.item}}
+				</strong>
+			</p>
+		</article>
+	{% else %}
+		<section class="container-fluid">
+			<h2 align="center">Todos</h2>
+			<br>
+			<div class="list-group list-group-flush">
+				{% for todo in todos %}
+					<li class="list-group-item">
+					{{loop.index}}.<a href="/todo/{{loop.index}}">{{todo.item}}</a>
+					</li> 
+				{% endfor %}
+			</ul>
+		</div>
+	{% endif %}
+</section>
+</main>
+{% endblock %}
+
+В предыдущем блоке кода шаблон todo наследует шаблон домашней страницы. Мы также определили блок 
+todo_container, содержимое которого будет отображаться в родительском шаблоне.
+Шаблон задачи используется как для получения всех задач, так и для одной задачи. В результате
+шаблон отображает различный контент в зависимости от используемого маршрута.
+
+В шаблоне Jinja проверяет, передается ли переменная todo с помощью блока {% if todo %}.
+Подробная информация о задаче отображается, если передается переменная задчи, в противном случае
+она отображает содержимое в блоке {% else %}, который является списком.
+
+9. Обновите веб-браузер, чтобы просмотреть последние изменения:
+
+10. Давайте добавим задачу, чтобы убедиться, что домашняя страница работает должным образом.
+
+11. Задача кликабельна. Нажмите на todo, и вы должны увидеть следующую страницу:
+
+Мы успешно добавили шаблон в наше приложение FastAPI.
+
+Резюме
+В этой главе мы узнали, что такое шаблоны, основы системы шаблонов Jinja и как использовать ее в FastAPI. Мы 
+использовали основы, изученные в первом разделе этой главы, чтобы решить, какой контент
+отображать. Мы также узнали, что такое наследование шаблонов и как оно работает, на примере
+шаблонов главной страницы и задач.
+
+В следующей главе вы познакомитесь со структурированием приложений в FastAPI. В этой главе вы будете
+создавать приложение планировщика, используя знания из этой и предыдущих глав. Сначала вы познакомитесь
+со структурой приложений, прежде чем приступить к созданию приложения - планировщика.

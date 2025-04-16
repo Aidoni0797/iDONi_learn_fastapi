@@ -87,4 +87,69 @@ app.include_router(user_router, prefix="/user")
 if _name_ == "_main_":
 	uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=True)
 
-В этом блоке кода мы создали экземпляр FastAPI и зарегистрировали маршрут.(92 стр)
+В этом блоке кода мы создали экземпляр FastAPI и зарегистрировали маршрут.
+
+5. Затем мы используем метод uvicorn.run() для запуска нашего приложения на порту 8080 и
+устанавливаем для перезагрузки значение True. В терминале запустите приложение:
+(venv)$ python main.py
+INFO: Will watch for changes in these directories:
+['Users/youngestdev/Work/Building-Web-APIs-with-FastAPI-and-Python/ch05/planner']
+INFO: Uvicorn running on http://0.0.0.0:8080(Press CTRL+C to quit)
+INFO: Started reloader process [6547] using statreload
+INFO: Started server process [6550]
+INFO: Waiting for application startup.
+INFO: Application startup complete.
+
+6. Теперь, когда наше приложение успешно запустилось, двайтте проверим реализованные нами 
+пользовательские маршруты. Начнем с регистрации пользователя:
+(venv)$ curl -X 'POST'\
+	'http://0.0.0.0:8080/user/signup'\
+	-H 'accept: application/json'\
+	-H 'Content-Type: application/json'\
+	-d '{
+		"email": 'fastapi@packt.com',
+		"password": "Stro0ng!",
+		"usernaame": "FastPackt"
+	}'
+
+Предыдущий запрос возвращает ответ:
+{
+	"message": "User succesfully registered!"
+}
+
+7. Предыдущий ответ указывает на успешность выполненой операции. Давайте проверим маршрут входа:
+(venv)$ curl -X 'POST'\
+	'http://0.0.0.0:8080*user/signin'\
+	-H 'accept: application/json'\
+	-H 'Content-Type: application/json'\
+	-d '{
+		"email": "fastapi@packt.com"
+		"password": "Stro0ng!"
+	}'
+
+Предыдущий ответ на запрос выглядит следующим образом:
+{
+	"message": "User signed in succesfully"
+}
+
+8. Если мы передадим неверный пароль, наше приложение должно вернуть другое сообщение:
+(venv)$ curl -X 'POST'\
+	'http://0.0.0.0:8080/user/signin'\
+	-H 'accept: application/json'\
+	-H 'Content-Type: application/json'\
+	-d '{
+		"email": "fastapi@packt.com",
+		"password": "password!"
+	}'
+
+Ответ на предыдущий запрос выглядит следующим образом:
+{
+	"detail": "Wrong credential passed"
+}
+
+Мы также можем просмотреть наши маршруты из интерактивной документации, предоставленной FastAPI,
+работающей на Swagger. Давайте посетим https://0.0.0.0:8080/docs в нашем браузере, чтобы
+получить доступ к интерактивной документации:
+
+Теперь, когда мы успешно реализовали пользовательские маршруты, давайте реализуем маршруты для 
+событийных операций в следующем разделе.

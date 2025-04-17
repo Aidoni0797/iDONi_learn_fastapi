@@ -1,0 +1,171 @@
+Маршруты событий
+
+После создания пользовательских маршрутов следующим шагом будет реализация маршрутов для
+событийных операций. Давайте посмотрим на шаги:
+1. Начните с импорта зависимостей и определения маршрутизатора событий:
+
+from fastapi import APIRouter, Body, HTTPEception, status
+from models.events import Event
+from typing import List
+
+event_router = APIRouter(
+	tags = ["Events"]
+)
+
+events = []
+
+2. Следующим шагом является определение маршрута для получения всех событий и события,
+соответствующего предоставленному идентификатору в базе данных:
+
+@event_router.get("/", response_model=List[Event])
+async def retrieve_all_events()->List[Event]:
+	return events
+
+@event_router.get("/{id}", response_model=Event)
+async def retrieve_event(id:int)->Event:
+	for event in events:
+		if event.id == id:
+			return event
+	raise HTTPException(
+		status_code=status.HTTP_404_NOT_FOUND,
+		detail="Event with supplied ID does not exist"
+	)
+
+Во втором маршруте мы вызываем исключение HTTP_404_NOT_FOUND, когда событие с предоставленным
+идентификатором не существует.
+
+3. Давайте реализуем маршруты для создания события, удаления одного события и удаления всех
+событий, содержащихся в базе данных:
+@event_router.post("/new")
+async def create_event(body: Evnt=Body(...))->dict:
+	events.append(body)
+	return{
+		"message": "Event created successfully"
+	}
+
+@event_router.delete("/{id}")
+async def delete_event(id:int)->dict:
+	for event in events:
+		if event.id == id:
+			events.remove(event)
+			return {"message":"Event deleted succesfully"}
+	raise HTTPException(
+		status_code=status.HTTP_404_NOT_FOUND,
+		detail="Event with supplied ID does not not exist"
+	)
+
+@event_router.delete("/")
+async def delete_all_events()->dict:
+	events.clear()
+	return {
+		"message": "Events deleted successfully"
+	}
+
+Мы успешно реализовали маршруты для событий. Маршрут UPDATE будет реализован в главе 6
+"Подключение к базе данных", где мы перенесем наше приложение для использования реальной 
+базы данных.
+
+4. Теперь, когда мы реализовали маршруты, давайте обновим нашу конфигурацию маршрута, чтобы
+включить маршрут соыбтия в main.py:
+
+from fastapi import FastAPI
+from routes.user import user_router
+from rouets.events import event_router
+import uvicorn
+
+#Register routes
+
+app.include_router(user_router, prefix="/user")
+app.include_router(event_router, prefix="/event")
+
+if __name__ == "__main__":
+	uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=True)
+
+Приложение автоматически перезагружается при каждом изменении. Проверим маршруты:
+-Маршрут GET - следующая операция возвращает пустой массив, сообщая нам об отсутствии данных:
+(venv)$curl -X 'GET'\
+	'http://0.0.0.0:8080/event/' \
+	-H 'accept: application/json'
+[]
+
+Далее добавим данные в наш массив.
+
+- Маршрут POST - в терминале выполните следующую команду:
+(venv)$curl -X 'POST'\
+	'http://0.0.0.0:8080/event/new' \
+	-H 'accept: application/json'\
+	-H 'Content-Type: application/json'\
+	-d '{
+		"id":1,
+		"title": "FastAPI Book Launch",
+		"image": "https://linktomyimage.com/image.png"
+		"description": "We will be discussing the contents of the FastAPI book in this event.
+				Ensure to come with your own to win gifts!",
+		"tags": [
+			"python",
+			"fastapi",
+			"book",
+			"launch"
+		],
+		"location": "Google Meet"
+	}'
+
+Вот ответ:
+	{
+		"message": "Event created successfully"
+	}
+
+Эта операция прошла успешно, судя по полученному ответу. ТЕперь давайте попробуем получить
+конкретное событие, которое мы только что создали:
+-маргрут GET:
+	(venv)$curl -X 'GET'\
+		'http://0.0.0.0:8080/event/1'\
+		-H 'accept: application/json'
+
+Вот ответ:
+{
+	"id":1,
+	"title": "FastAPI BookLaunch",
+	"image": "https://linktomyimage.com/image.png",
+	"description": "We will be discussing the contents of the FastAPI book in this event.
+			Ensure to come with your own copy to win gifts!",
+	"tags": [
+		"python",
+		"fastapi",
+		"book",
+		"launch"
+	],
+	"location": "Google Meet"
+}
+
+Наконец, давайте удалим событие, чтобы убедиться, что маршрут события работает:
+- Маршрут DELETE - в терминале выполните следующую команду:
+
+(venv)$ curl -X 'DELETE'\
+	'http://0.0.0.0:8080/event/1' \
+	-H 'accept: application/json'
+
+Вот ответ:
+{
+	"message": "Event deleted successfully"
+}
+
+Если я повторю ту же команду, я получу следующий ответ:
+
+(venv)${
+	"detail": "Event with supplied ID does not exist"
+}
+
+Мы успешно реализовали маршруты и модели для нашего приложения - планировщика. Мы также 
+протестировали их, чтобы оценить их рабочее состояние.
+
+Резюме
+
+В этой главе мы узнали, как структурировать приложение FastAPI и реализовать маршруты и модели
+для приложения планирования событий. Мы использовали основы маршрутизации и занния о маршрутизации
+и моделировании, полученные в предыдущей главе.
+
+В следующей главе вы познакомитесь с подключением вашего приложения к базам данных SQL and NoSQL.
+Вы продолжите создания приложения для планирования мероприятий, улучшая существующее
+приложение и добавляя дополнительные функции. Перед этим вас познакомят что такое базы
+данных, разные типы и как использовать обе (SQL and NoSQL) в приложении FastAPI.

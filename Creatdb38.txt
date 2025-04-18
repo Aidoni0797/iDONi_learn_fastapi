@@ -1,0 +1,146 @@
+Создание базы данных
+В SQLModel подключение к базе данных осуществляется с помощью механизма SQLAlchemy. Движок
+создается мотодом create_engine(), импортированным из библиотеки SQLModel.
+
+Метод create_engine() принимает в качестве аргумента URL-адрес базы данных. 
+URL-адрес базы данных имеет вид sqlite:///database.db или sqlite:///database.sqlite.
+Он также принимает необязательный аргумент echo, который, если установлено значение True
+распечатывает команды SQL, выполняемые при выполнении операции.
+
+Однако одного метода create_engine() одного метода для создания файла базы данных.
+Чтобы создать файл базы данных, вызывается метод, SQLModel.metadata.create_all(engine),
+аргументом которого является экземпляр метода create_engine(), например:
+
+database_file = "database.db"
+engine = crate_engine(database_file, echo = True)
+SQLModel.metadata.create_all(engine)
+
+Метод create_all() создает базы данных, а также определенные таблицы. Важно отметить, что файл,
+содержащий таблицы, импортируется в файл, в котором происходит подключение к базе данных.
+
+В нашем приложении-планировщике мы выполняем CRUD операции для событий. В папке базы данных
+создайте следующий модуль:
+connection.py
+
+В этой файле мы настроим необходимые данные для базы данных.
+(venv)$ touch database/connection.py
+
+Теперь, когда мы создали файл подключения к базе данных, давайте созадим функции, необходимые
+для подключения нашего приложения к базе данных:
+
+1. Мы начнем с обновления класса модели событий, определенного в models.events.py, до класса
+модели таблицы SQLModel:
+
+from sqlmodel import JSON, SQLModel, Field, Column
+from typing import Optional, List
+
+class Event(SQLModel, table=True):
+	id: int = Field(default=None, primary_key=True)
+	title:str
+	image:str
+	description:str
+	tags:List[str] = Field(sa_column=Column(JSON))
+	location:str
+	
+	class Config:
+		arbitrary_types_allowed=True
+		schema_extra={
+			"example":{
+				"title": "FastAPI Book Launch",
+				"image": "https://
+				linktomyimage.com/image.png",
+				"description": "We will be discussing
+				the contents of the FastAPI book in this event.
+				Ensure to come with your own copy to win gifts!",
+				"tags": ["python", "fastapi", "book", "launch"],
+				"location": "Google Meet"
+			}
+		}
+
+В этом блоке кода мы изменили исходный класс модели, чтобы он стал классом таблицы SQL.
+
+2. Добавим еще один класс SQLModel, который будет использоваться в качестве типа тела во
+время операций UPDATE:
+
+class EventUpdate(SQLModel):
+	title: Optional[str]
+	image: Optional[str]
+	description: Optional[str]
+	tags: Optional[List[str]]
+	location:Optional[str]
+
+	class Config:
+		schema_extra = {
+			"example": {
+				"title": "FastAPI Book Launch",
+				"image": "https://linktomyimage.com/image.png",
+				"description": "We will be discussing the contents of the
+						FastAPI book in this event. Ensure to come 
+						with your own copy to win gifts!",
+				"tags": ["python", "fastapi", "book", "launch"],
+				"location": "Google Meeet"
+			}
+		}
+
+3. Далее давайте определим конфишурацию, необходимую для создания нашей базы данных и таблицы
+в connection.py
+
+from sqlmodel import SQLModel, Session, create_engine
+from models.events import Event
+
+database_file = "planner.db"
+database_connection_string=f"sqlite:///{database_file}"
+connect_args={"check_same_thread":False}
+engine_url = create_engine(database_connection_string,
+echo=True, connect_args=connect_args)
+
+def conn():
+	SQLModel.metadata.create_all(engine_url)
+
+def get_session():
+	with Session(engine_url) as session:
+		yield session
+
+В этом блоке кода мы начинаем с определения зависимостей, а также импортируем класс модели таблицы.
+Затем мы создаем переменную, содержащую расположение файла базы данных (который будет  создан,
+если он не существует), строку подключения и экземпляр созданной базы данных SQL. В функции
+conn() мы инструктурируем SQLModel создать базу данных, а также таблицу, представленную
+в файле, Events, и сохранить сеанс в нашем приложении, определено, get_session().
+
+4. Далее давайте проинструктируем наше приложение создавать базу данных при запуске. Обновите
+main.py следующим кодом:
+
+from fastapi import FastAPI
+from fastapi.rsponses import RedirectResponse
+from database.connection import conn
+
+from routes.users import user_router
+from routes.events import event_router
+
+import uvicorn
+
+app = FastAPI()
+
+# Register routes
+
+app.include_router(user_router, prefix="/user")
+app.include_router(event_router, prefix="/event")
+
+@app.on_event("startup")
+def on_startup():
+	conn()
+
+@app.geet("/"):
+async def home():
+	return RedirectResponse(url="/event/")
+
+if __name__ == '__main__':
+	uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=True)
+
+База данных будет создана после запуска приложения. В событии запуска мы вызвали функцию conn()
+отвечающую за создание базы данных. Запустите приложение в своем терминале, и вы должны
+увидеть вывод в своей консоли, указывающий, что база данных была создана, а также таблица:
+
+Команды SQL, отображаемые в терминале, появляются из-за того, что при создании ядра базы данных
+для echo установлено значение True. Теперь, когда мы успешно создали базу данных, давайте
+обновим маршруты CRUD операций наших событий, чтобы использовать базу данных.

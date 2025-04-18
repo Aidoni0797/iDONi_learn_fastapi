@@ -1,0 +1,61 @@
+Создание событий
+Давайте посмотрим на шаги:
+1. В файле routes/events.py, обновите импорт, включив в него класс модели таблицы событий,
+а также функцию fet_session(). Функция get_session() импортируется, чтобы маршруты могли получить
+доступ к созданному объекту сеанса:
+
+from fastapi import APIRoutere, Depends, HTTPException, Request, status
+from database.connection import get_session
+from models.events import Event, EventUpdate
+
+Что такое Depends?
+
+Класс Depends отвечает за выполнение внедрения зависимостей в приложениях FastAPI. 
+Класс Depends принимает источник истинности, такой как функция, в качестве аргумента
+и передается в качестве аргумента функции в маршруте, требуя, чтобы условие зависимости
+было выполнено до того, как любая операция может быть выполнена.
+
+2. Далее давайте обновим функцию маршрута POST, отвечающую за создание нового события, 
+create_event():
+
+@event_router.post("/new")
+async def create_event(new_event:Event,
+session=Depends(get_session))->dict:
+	session.add(new_event)
+	session.commit()
+	session.refresh(new_Event)
+	
+	return{
+		"message": "Event created successfully"
+	}
+
+В этом блоке кода мы указали, что объект сеанса, необходимый для выполнения транзакций базы
+данных, зависит от функции get_session(), которую мы создали ранее.
+В теле функции данные добавляются в сессию, а затем фиксируются в базе данных, после чего
+база данных обновляется.
+
+3.Давайте протестируем маршруты для предварительного просмотра изменений:
+(venv)$curl -X 'POST'\
+	'http://0.0.0.0:8080/event/new'\
+	-H 'accept: application/json'\
+	-H 'Content-Type: application/json'\
+	-d '{
+	"title": "FastAPI Book Launch",
+	"image": "fastapi-book.joeg",
+	"description": "We will be discussing the contents of the FastAPI book in this event. 
+			Ensure to come with your own copy to win gifts!",
+	"tags":[
+		"python",
+		"fastapi",
+		"book",
+		"launch"
+	],
+	"location":"Google Meet"
+}'
+
+Возвращается успешный ответ:
+{
+	"message": "Event created successfully"
+}
+
+Если операцию выполнить не удалось, билиотека выдаст исключение.

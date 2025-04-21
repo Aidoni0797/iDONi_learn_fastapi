@@ -1,0 +1,50 @@
+Удаление событий
+
+В events.py, обновите маршрут delete определенный ранее:
+
+@event_router.delete("/delete/{id}")
+async def delete_event(id:int, session=Depends(get_session))->dict:
+	event = session.get(Events, id)
+	if event:	
+		session.delete(event)
+		session.commit()
+		return {
+			"message": "Event deleted successfully"
+		}
+	raise HTTPException(
+		status_code=status.HTTP_404_NOT_FOUND,
+		detail="Event with supplied ID does not exist"
+	)
+
+В это блоке кода функция проверяет, существует ли событие, идентификатор которого был
+предоставлен, а затем удаляет его из базы данных. После выполнения операции возвращается 
+сообщение об успешном выполнении и выдается исключение, если событие не существует.
+Удалим событие из базы:
+
+(venv)$ curl -X "DELETE"\
+	'http://0.0.0.0:8080/event/delete/1'\
+	-H 'accept: application/json'
+
+Запрос возвращает успешный ответ:
+{
+	"message": "Event deleted successfully"
+}
+
+Теперь, если мы получим список событий, мы получим пустой массив для ответа:
+(venv)$ curl -X 'GET'\
+	'http://0.0.0.0:8080/event'\
+	-H 'accept:application/json'
+
+[]
+
+Мы успешно внедрили базу данных SQL в наше приложение с помощью SQLModel, а также
+реализовали CRUD операции. Давайте зафиксируем изменения, внесенные в приложение, прежде чем
+научиться реализовывать CRUD операции в MongoDB:
+(venv)$ git add .
+(venv)$ git commit -m "[Feature] Incorporate a SQL database and implement CRUDD operations"
+
+Вернуться к main ветке:
+(venv)$ git chechout main
+
+Теперь,когда вы вернулись к исходной версии приложения, давайте включим MongoDB в качестве
+платформы базы данных и реализуем CRUD операции в следующем разделе.

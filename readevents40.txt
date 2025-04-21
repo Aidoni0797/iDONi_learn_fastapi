@@ -1,0 +1,68 @@
+Чтение событий
+
+Давайте обновим маршрут GET, который извлекает список событий для извлечения данных из базы данных.
+
+@event_router.get("/", response_model=List[Event])
+async def retrieve_all_events(session=Depends(get_session))->List[Event]:
+	statement = select(Event)
+	events=session.exec(statement).all()
+	return events
+
+Аналогичным образом, маршрут для отображения данных события при получении по его идентификатору
+также обновляется:
+@event_router.get("/{id}", response_model=Event)
+async def retrieve_event(id:int, session=Depends(get_session))->Event:
+	event = session.get(Event, id)
+	if event:
+		return event
+	raise HTTPException(
+		status_code=status.HTTP_404_NOT_FOUND,
+		detail="Event with supplied ID does not exist"
+	)
+	raise HTTPException(
+		status_code=status.HTTP_404_NOT_FOUND,
+		detail="Event with supplied ID deos not exist"
+	)
+
+Модель ответа для обоих маршрутов была установлена в классе модели. Давайте протестируем оба
+маршрута, сначала отправив запрос GET для получения списка событий:
+(venv)$curl -X 'GET'\
+	'http://0.0.0.0:8080/event/'\
+	-H 'accept:application/json'
+
+Мы получаем ответ:
+[
+	{
+		"id":1,
+		"title":"FastAPI Book Launch",
+		"image":"fastapi-book.jpeg",
+		"description":"We will be discussing the contents of the FastAPI book in this
+				event. Ensure to come with your own copy to win gifts!"
+		"tags":[
+			"python",
+			"fastapi",
+			"book",
+			"launch"
+		],
+		"location": "Google Meet"
+	}
+]
+
+Далее давайте извлечем событие по его ID:
+(venv)$curl -X 'GET'\
+	'http://0.0.0:8080/event/1'\
+	-H 'accept: application/json'
+}
+{
+	"id":1,
+	"title": "FastAPI Book Launch",
+	"image": "fastapi-book.jpeg",
+	"description": "The launch of the FastAPI book will hold on xyz."
+	"tags":[
+		"python",
+		"fastapi"
+	],
+	"location": "virtual"
+}
+
+После успешной реализации операций READ давайте добавим функцию редактирования для нашего приложения.

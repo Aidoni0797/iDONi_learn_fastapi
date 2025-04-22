@@ -1,0 +1,138 @@
+»нициализаци€ базы данных
+ƒавайте посмотрим на шаги, чтобы сделать это:
+
+1. ¬ папке базы данных создайте модуль connection.py:
+(venv)$ touch connection.py
+
+Pydantic позвол€ет нам читать переменные среды, создава€ дочерний класс родительского класса
+BaseSettings. ѕри создании веб-API стандартной практикой €вл€етс€ переменных конфигурации 
+в файле среды:
+
+3. ¬ connection.py добавьте следующее:
+from beanie import init_beanie
+from motor.motor_asyncio import AsyncIOMotorClient
+from typing import Optional
+from pydantic import BaseSettings
+
+class Setting(BaseSettings):
+	DATABASE_URL = Optional[str] = None
+
+	async def initialize_database(self):
+		client = AsyncIOMotorClient(self.DATABASE_URL)
+		wait init_beanie(
+			database = client.get_default_database(),
+			document_models = []
+		)
+
+	class Config:
+		env_file = ".env"
+
+¬ этом блоке кода мы начинаем с импорта зависимостей, необходимых дл€ инициализации базы
+данных. «атем мы определ€ем класс Settings, который имеет значение DATABASE_URL, которое
+считываетс€ из среды env, определенной в подклассе Config. ћы также определ€ем метод 
+initialize_database дл€ инициализации базы данных.
+
+ћетод init_beanie принимает клиент базы данных, который представл€ет собой версию движка
+mongo, созданную в разделе SQLModel, и список документов.
+
+3. ƒавайте обновим файлы модели в каталоге моделей, чтобы включить документы MongoDB. 
+¬ models/events.py, замените содержимое следующим:
+
+from beanie import Document
+from typing import Optional, List
+
+class Event(Document):
+	title: str
+	image: str
+	description: str
+	tags: List[str]
+	location: str
+
+	class Config:
+		schema_extra = {
+			"example": {
+				"title": "FastAPI Book Launch",
+				"image": "https://linktomyimage.com/image.png",
+				"description": "We will be discussing the contents of the 
+					FastAPI book in this event. Ensure to come with your
+					own copy to win gifts!"
+				"tags": ["python", "fastapi", "book", "launch"],
+				"location": "Google Meet"
+			}
+		}
+	
+	class Settings:
+		name = "evenets"
+
+4. ƒавайте создадим модель Pydantic дл€ операций UPDATE:
+
+class EventUpdate(BaseModel):
+	title: Optional[str]
+	image: Optional[str]
+	description: Optional[str]
+	tags: Optional[str]
+	location: Optional[str]
+	
+	class Config:
+		schema_extra = {
+			"example": {
+				"title": "FastAPI Boo Launch",
+				"image": "https://linktomyimage.com/image.png",
+				"description": "We will be discussing the contents of the
+						FastAPI book in this event. Ensure to come
+						with your own copy to win gifts!",
+				"tags": ["python", "fastapi", "book", "launch"],
+				"location": "Google Meet"
+			}
+		}
+
+
+5. In model/users.py, замените содержимое модул€ следующим:
+from typing import Optional, List
+from beanie import Document, Link
+
+from pydantic import BaseModel, EmailStr
+
+from models.events import Event
+
+class User(Document):
+	email: EmailStr
+	password: str
+	events: Optional[List[Link[Event]]]
+	
+	class Settings:
+		name = "users"
+
+	class Config:
+		schema_extra = {
+			"example": {
+				"email": "fastapi@packt.com",
+				"password": "strong!!!",
+				"events": [],
+			}
+
+class UserSingIn(BaseModel):
+	email:EmailStr
+	password: str
+
+6. “еперь, когда мы определили документы, давайте обновим поле document_models in connection.py:
+
+from models.users import User
+from models.events import Event
+
+async def initialize_database(self):
+	client = AsyncIOMotorClient(self.DATABASE_URL)
+	await init_beanie(
+	database = client.get_default_database(),
+	documnt_models=[Event, User]
+	)
+
+7. Ќаконец, давайте создадим файл среды, .env, и добавим URL-адрес базы данных, чтобы завершить
+этап инициализации базы данных:
+
+(venv)$ touch .env
+(venv)$ echo DATABASE_URL=mongodb://localhost:27017/planner>>.env
+
+“еперь, когда мы успешно добавили блоки кода дл€ инициализации базы данных, давайте приступим
+к реализации методов дл€ CRUD операций.
+		}

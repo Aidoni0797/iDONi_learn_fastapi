@@ -1,0 +1,231 @@
+routes/users.py
+НАчнем с обновления импорта и создания экземпляра базы данных:
+from fastapi import APIRouter, HTTPException, status
+from database.connection import Database
+from models.users import User, UserSignIn
+
+user_router = APIRouter(
+	tags=["User"],
+)
+
+user_database = Database(user)
+
+Затем обновите маршрут POST для подписи новых пользователей:
+@user_router.post("/signup")
+async def sign_user_up(user:User)->dict:
+	user_exist = await User.find_one(User.email==user.email)
+	if user_exist:
+		raise HTTPException(
+			status_code=status.HTTP_409_CONFLICT,
+			detail="User with email provoded exists already."
+		)
+	await user_database.dave(user)
+	return {
+		"message": "User created successfully"
+	}
+
+В этом блоке кода мы проверяем, существует ли такой пользователь переданным адресом
+электронной пояты, прежде чем добавлять его в базу данных. Давайте добавим маршрут
+для входа пользователей:
+
+@user_router.post("/signin")
+async def sign_user_in(user:UserSignIn)->dict:
+	user_exist = await User.find_one(User.email == user.email)
+	if not uer_exist:
+		raise HTTPException(
+			status_code = status.HTTP_404_NOT_FOUND,
+			detail="User with email does not exist."
+		)
+	if user_exist.password == user.password:
+		return {
+			"message": "User signed in successfully."
+		}
+	raise HTTPException(
+		status_code = status.HTTP_401_UNAUTHORIZED,
+		detail="Invalid details passed."
+	)
+В этом определенном маршруте мы сначала проверяем, существует ли пользователь, прежде чем проверять
+действительность его учетных данных. Используемый здесь метод аутентификации является
+базовым и не рекомендуется в производственной среде. Мы рассмотрим правильные процедуры 
+аутентификации в следующей главе.
+
+Теперь, когда мы реализовали маршруты, давайте запустим экземпляр MongoDB, а также наше
+приложение. Создайте папку для размещения нашей базы данных MongoDB и запустите экземпляр
+MongoDB:
+
+(venv)$ mkdir store
+(venv)$ mongodb --dbpath store
+
+Далее в другом окне запускаем приложение:
+
+(venv)$ python main.py
+INFO: Uvicorn running on http://0.0.0.0:8080 (Press CTRL+C to quit)
+INFO: Started reloader process [3744] using statreload
+INFO: Started server process [3747]
+INFO: Waiting for applicarion startup.
+INFO: Application startup complete.
+
+Давайте протестируем маршруты событий:
+
+1. Создайте событие:
+(venv)$ curl -X 'POST' \
+	'http://0.0.0.0:8080/event/new'\
+	-H 'accept: application/json' \
+	-H 'Content-Type: application/json' \
+	-d '{
+	"title": "FastAPI Book Launch",
+	"image": "https://linktomimage.com/image.png",
+	"description": "We will be discussing the contents of the FastAPI book in this event.
+		Ensure to come with your own copy to win gifts!",
+	"tags":[
+		"python",
+		"fastapi",
+		"book",
+		"launch"
+	],
+	"location": "Google Meet"
+	}'
+
+Вот ответ от предыдущей операции:
+
+{
+	"message": "Event created successfully"
+}
+
+2. Получить все события:
+(venv)$curl -X 'GET'\
+	'http://0.0.0.0:8080/event'\
+	-H 'accept: application/json'
+
+Предыдущий запрос возвращает список событий:
+
+[
+	{
+		"_id": "624daab1585059e8a3fa77ac",
+		"title": "FastAPI Book Launch",
+		"image": "https://linktomyimage.com/image.png",
+		"description": "We will be discussing the contents of the FastAPI book in this event.
+				Ensure to come with your own copy to win gifts!",
+		"tags": [
+			"python",	
+			"fastapi",
+			"book",
+			"launch"
+		],
+		"location": "Google Meet"
+	}
+]
+
+3. Получить событие:
+
+(venv)$curl -X 'GET'\
+	'http://0.0.0.0:8080/event/624daab1585059e83fa77ac'\
+	-H 'accept: application/json'
+
+Эта операция возвращает событие, соответствующее предоставленному ID:
+
+{
+	"_id": "624daab1585059e8a3fa77ac",
+	"title": "FastAPI Book Launch",
+	"image": "https://linktomyimage.com/image.png",
+	"description": "We will be discussing the contents of the FastAPI book in this event.
+			Ensure to come with your own copy to win gifts!",
+	"tags":[
+		"python",
+		"fastapi",
+		"book",
+		"launch"
+	],
+	"location": "Google Meet"
+}
+
+4. Обновим локацию события на Hybrid:
+
+(venv)$curl -X 'PUT'\
+	'http://0.0.0.0:8080/event/624daab1585059e8a3fa77ac'\
+	-H 'accept: application/json'\
+	-H 'Content-Type: application/json'\
+	-d '{
+		"location: "Hybrid""
+	}'
+	
+	{
+		"_id": "624daab1585059e83fa77ac",
+		"title": "FastAPI Book Launch",
+		"image": "https://linktomyimage.com/image.png",
+		"description": "We will be discussing the contents of the FastAPI book in this event.
+				Ensure to come  with your own copy to win gifts!",
+		"tags": [
+			"python",
+			"fasatapi",
+			"book",
+			"launch"
+		],
+		"location": "Hybrid"
+	}
+
+5. Наконец, давайте удалим событие:
+(venv)$curl -X 'DELETE'\
+	'http://0.0.0.0:8080/event/624daab1585059e8a3fa77ac'\
+	-H 'accept: application/json'
+
+Вот ответ, полученный на запрос:
+{
+	"message": "Event deleted succesfully."
+}
+
+6. Теперь, когда мы протестировали маршруты для событий, давайте создадим нового пользователя,
+а затем войдем в систему:
+(venv)$curl -X 'POST'\
+	'http://0.0.0.0:8080/user/signup'\
+	-H 'accept: application/json'\
+	-H 'Content-Type: application/json'\
+	-d '{
+	"email": "fastapi@packt.com",
+	"password": "strong!!!",
+	"events": []
+	}'
+
+Запрос возвращает ответ:
+{
+	"message": "User created successfully"
+}
+
+Повторный запуск запроса возвращает ошибку HTTP 409, указывающую конфликт:
+
+{
+	"detail": "User with email provided exists already."
+}
+
+Изначально мы разработали маршрут для проверки существующих пользователей, чтобы избежать
+дублирования.
+
+7. Теперь давайте отправим POST запрос для входа только что созданному пользователю:
+
+(venv)$curl -X 'POST'\
+	'http://0.0.0.0:8080/user/signin'\
+	-H 'accept: application:json'\
+	-H 'Content-Type: application/json'\
+	-d '{
+		"email": "fastapi@packt.com",
+		"password": "strong!!!"
+	}'
+
+Запрос возвращает сообщение об успешном завершении HTTP 200:
+
+{
+	"message": "User signed in successfully."
+}
+
+Мы успешно реализовали CRUD-операции с помощью библиотеки Beanie.
+
+Резюме
+В этой главе мы узнали, как добавлять базы данных SQL and NoSQL с помощью SQLModel and Beanie
+соответственно. Мы использовали все наши знания из предыдущих глав. Мы также проверили маршруты,
+чтобы убедиться, что они работают по плану.
+
+В следующей главе вы познакомитесь с защитой вашего приложения. Сначала вас научат основам 
+аутентификации, а также различным методам аутентификации, доступным разработчикам FastAPI.
+Затем вы внедрите систему аутентификации, основанную на SON веб-токенах (JWT), и защитите
+маршруты для создания, обновления и удаления событий. Наконец, вы измените маршрут, чтобы
+создать события, позволяющие связать события с пользователем.

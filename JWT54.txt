@@ -1,0 +1,103 @@
+Обновление класса документа события и маршрутов
+
+Добавьте поле creator в класс документа Event в models/events.py:
+
+class Event(Document):
+	creator:Optional[str]
+
+Это поле позволит нам огранизить операции, выполняемые с событием, только пользователем.
+
+Далее давайте изменим маршрут POST, чтобы обновить поле creator при создании нового события
+в routes/events.py:
+
+@event_router.post("/new")
+asyn def create_Event(body:Event, user: str = Depends(authenticate))->dict:
+	body.creator = user
+	await event_database.save(body)
+	return {
+		"message": "Event created succesfully"
+	}
+
+В предыдущем блоке кода мы обновили маршрут POST, чтобы добавить адрес электронной почты
+текущего пользователя в качестве создателя события. Если вы создаете новое мероприятие, оно
+сохраняется вместе с адресом электронной почты создателя:
+
+$curl -X 'POST' \ 
+	'http://0.0.0.0:8080/event/new'\
+	-H 'accept: application/json'\
+	-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV
+CJ9.eyJ1c2VyIjoicmVhZGVyQHBhY2t0LmNvbSIsImV4cGlyZXMiOjE2NTA4MzI
+5NjQuMTU3MjQ4fQ.RxR1TYMx91JtVMNzYcT7718xXWX7skTCfWbnJxyf6fU'\
+	-H 'Content-Type: application/json'\
+	-d '{
+	"title": "FastAPI Book Launch",
+	"image": "https:/linktomyimage.com/image.png",
+	"description": "We will be discussing the contents of the FastAPI book in this event.
+			Ensure to come with your own copy to win gifts!",
+	"tags": [
+		"python",
+		"fastapi",	
+		"book",
+		"launch"
+	],
+	"location": "Google Meet"
+	}'
+Ответ, возвращенный из запроса выше:
+{
+	"message": "Event created successfully"
+}
+
+Далее давайте получим список событий, хранящихся в базе данныхЖ
+$curl -X 'GET'\
+	'http://0.0.0.:8080/event'\
+	-H 'accept: application/json'
+
+Ответ на запрос выше:
+[
+{
+"_id": "6265a807e0c8daefb72261ea",
+"creator": "reader@packt.com",
+"title": "FastAPI BookLaunch",
+"image": "https://linktomyimage.com/image.png",
+"description": "We will be discussing the contents of the
+FastAPI book in this event.Ensure to come with your own
+copy to win gifts!",
+"tags": [
+"python",
+"fastapi",
+"book",
+"launch"
+],
+"location": "Google Meet"
+},
+]
+
+Далее давайте обновим маршрут UPDATE:
+@event_router.put("/{id}", response_model=Event)
+async def update_event(id:PydanticObjectId, body:EventUpdate, user:str=Depends(authenticate))->Event:
+	event = await event_database.get(id)
+	if event.creator!=user:
+		raise HTTPException(
+			status_code=status.HTTP_400_BAD_REQUEST,
+			detail="Operation not allowed"
+		)
+
+В предыдущем блоке кода функция маршрута проверяет, может ли текущий пользователь редактировать
+событие, прежде чем продолжить, в противном случае она вызывает исключение неверного запроса
+HTTP 400.
+Вот пример использования другого пользователя:
+$ curl -X 'PUT'\
+	'http://0.0.0.0:8080/event/6265a83fc823a3c912830074'\
+	-H 'accept: application/json' \
+	-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVC
+	J9.eyJ1c2VyIjoiZmFzdGFwaUBwYWNrdC5jb20iLCJleHBpcmVzIjoxNjUwODM
+	zOTc2LjI2NzgzMX0.MMRT6pwEDBVHTU5C1a6MV8j9wCfWhqbza9NBpZz08xE' \
+	-H 'Content-Type: application/json' \
+	-d '{
+	"title": "FastAPI Book Launch"
+}'
+Вот ответ:
+{
+"detail":"Operation not allowed"
+}
+(154 page)

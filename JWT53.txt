@@ -1,0 +1,166 @@
+Обновление приложения
+В этом разделе мы обновим маршруты для использования новой модели аутентификации. Наконец,
+мы обновим маршрут POST для добавления события, чтобы заполнить поле событий в записи
+пользователя.
+
+Обновление маршрута входа пользователя
+В routes/users.py обновите импорт:
+
+from fastapi import APIRouter, Depnds, HTTPxception, status
+from fastapi.security import OAuth2PasswordRequestForm
+from auth.jwt_handler import create_access_token
+
+from models.users import User
+
+Мы импортировали класс OAuth2PasswordRquestForm из модуля безопасности FastAPI. Это будет
+введено в маршрут входа для получения отправленных учетных данных: имя пользователя и пароль.
+Давайте обновим функцию маршрута sign_user_in():
+
+async def sign_user_in(user:OAuth2PasswordRequestForm == Depends())->dict:
+	user_exist = await User.find_one(User.email==user.username)
+	if hash_password.verify_hash(user.password, user_exist.password):
+		access_token = create_access_token(user_xist.email)
+		return {
+			"access_token": access_token,
+			"token_type": "Bearer"
+
+
+В предыдущем блоке кода мы внедрили класс OAuth2PasswordRequestForm в качестве зависимости для
+этой функции, гарантируя строгое соблюдение спецификации OAuth. В теле функции мы сравниваем
+пароль и возвращаем токен доступа и тип токена. Прежде чем протестировать обновленный маршрут,
+давайте создадим модель ответа для маршрута входа в models/users.py, чтобы заменить класс
+модели UserSignIn, который больше не используется:
+
+class TokenResponse(BaseModel):
+	access_token: str
+	token_type: str
+
+Обновите импорт и модель ответа для маршрута входа:
+
+from models.users import User, TokenResponse
+
+@user_router.post("/signin", response_model=ToknResponse)
+
+Давайте посетим интерактивные документы, чтобы убедиться, что тело запроса соответствует
+спецификациям OAuth2 по адресу http://0.0.0.0:8080/docs:
+
+Давайте войдем в систему, чтобы убедиться, что маршрут работает правильно
+$ curl -X 'POST'\
+	'http://0.0.0.0:8080/user/signin'\
+	-H 'accept: application/json'\
+	-H 'Content-Type: application/x-www-form-urlencoded'\
+	-d 'grant_type=&username=reader%40packt.com&password=exemplary&scope=&client_id=&client_secret='
+
+Возвращаемый ответ представляет собой токен доступа и тип токена:
+{
+	"access_token": "eyJhbGgiOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjoicmVhZGVyQHBhY2
+			t0LmNvbSIsImV4cGlyZXMiOjE2NTA4Mjc0MjQuMDg2NDAxfQ.LY4i5EjIzlsKdf
+			MyWKi7XH7lLDuVt3832hNfkQx8C8",
+	"token_type": "Bearer"
+}
+
+Теперь, когда мы убедились, что маршрут работает должным образом, давайте обновим маршруты
+событий, чтобы разрешать только авторизованным пользователям события CREATE, UPDATE, DELETE.
+
+Обновление маршрутов мобытий
+Теперь, когда у нас есть наша аутентификация, давайте добавим зависимость аутентификации в
+функции маршрута POST, PUT and DELETE:
+
+from auth.authenticate import authenticate
+
+async def create_event(body:Event, user:str=Depends(authenticate))->dict:
+
+async def update_event(id:PydanticObjectId, body:EventUpdate, user:str=Depends(authenticate))->Event:
+
+async def delete_event(id:PydanticObjectId, user:str=Depends(authenticate))->dict:
+
+После внедрения зависимостей веб-сайт интерактивной документации автоматически обновляется
+для отображения защищенных маршрутов. Если мы войдем в http://0.0.0.0:8080/docs, мы увидим
+кнопку авторизации в правом верхнем углу и замки на маршрутах событий:
+
+Если мы нажмем кнопку "Авторизовать", отобразится модальное окно входа. Ввод наших учетных
+данных и пароля возвращает следующий экран:
+
+Теперь, когда мы успешно вошли в систему, мы можем создать событие:
+
+Те же операции можно выполнить из командной строки. Во-первых, давайте получим наш токен доступа:
+$ curl -X 'POST'\
+	'http://0.0.0.0:8080/user/signin'\
+	-H 'accept: application/json'\
+	-H 'Content-Type: application/x-www-form/urlencoded'\
+	-d 'grant_type=&username=reader%40packt.com&password=exemplary&scope=&client_id=&client_secret='
+Отправленный запрос возвращает токен доступа, который представляет собой строку JWT,  и тип токена,
+который имеет тип Bearer:
+{
+"access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.
+eyJ1c2VyIjoicmVhZGVyQHBhY2t0LmNvbSIsImV4cGlyZXMiOjE2NTA4MjkxOD
+MuNTg3NjAyfQ.MOXjI5GXnyzGNftdlxDGyM119_L11uPq8yCxBHepf04",
+"tolen_type": "Bearer"
+}
+
+Теперь давайте создадим новое событие из командной строки:
+$ curl -X 'POST'\
+	'http://0.0.0.0:8080/event/new'\
+	-H 'accept:application/json'\
+	-H 'Authorization: Beaerer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.
+eyJ1c2VyIjoicmVhZGVyQHBhY2t0LmNvbSIsImV4cGlyZXMiOjE2NTA4MjkxOD
+MuNTg3NjAyfQ.MOXjI5GXnyzGNftdlxDGyM119_L11uPq8yCxBHepf04'\
+	-H 'Content-Type: application/json'\
+	-d '{
+	"title": "FastAPI Book Launch CLI",
+	"image": "https://linktomyimage.com/image.png",
+	"description": "We will be discussing the contents of the FastAPI book in this event.
+			Ensure to come with your own copy to win gifts!",
+	"tags":[
+		"python",
+		"fastapi",
+		"book",
+		"launch"
+	],
+	"location": "Google Meet"
+	}'
+
+В отправленном здесь запросе также отправляется заголовок Authorization: Bearer, чтобы сообщить
+приложению, что мы уполномочены выполнять это действие. Полученный ответ следующий:
+{
+	"message": "Event created successfully"
+}
+
+Если мы попытаемя создать событие без передачи заголовка авторизации с действительным токеном,
+будет возвращена ошибка HTTP 401 Unauthorized:
+
+$ curl -X 'POST'\
+	'http://0.0.0:8080/event/new'\
+	-H 'accept: application/json'\
+	-H 'Content-Type: application/json'\
+	-d '{
+	"title": "FastAPI BookLaunch",
+	"image": "https://linktomyimage.com/image.png",
+	"description": "We will be discussing the contents of the FastAPI book in this event.
+			Ensure to come with your own copy to win gifts!",
+	"tags": [
+		"python",
+		"fastapi",
+		"book",
+		"launch"
+	],
+	"location": "Google Meet"
+	}'
+
+Вот ответ:
+$ {
+	"detail": "Not authenticated"
+}
+
+Теперь, когда мы успешно защитили маршруты, давайте обновим защищенные маршруты следующим
+образом:
+
+-Маршрут POST: добавление созданного события в список событий, принадлежащих пользователю.
+
+-Маршрут UPDATE: измените маршрут, чтобы можно было обновить только событие, созданное пользователем.
+
+- Маршрут DELETE: измените маршрут, чтобы удалить можно было только событие, созданное пользователем.
+
+В предыдущем разделе мы успешно внедрили зависимости аутентификации в наши операции маршрутизации.
+Чтобы легко идентифицировать события и предотварить удаление пользователем события другого
+пользователя, мы обновим класс документа события, а также маршруты.

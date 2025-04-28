@@ -1,0 +1,278 @@
+ТЕстирование конечных точек CRUD
+Мы начнем с создания нового модуля с именем test_routes.py
+(venv)$touch test_routes.py
+Вы вновь созданный модуль добавьте следующий код:
+
+import httpx
+import pytest
+
+from auth.jwt_handler import create_access_token
+from models.events import Event
+
+В предыдущем блоке кода мы импортировали обычные зависимости. Мы также импортировали функцию
+create_access_token(user) и модель Event. Поскольку некоторые из маршрутов защищены, мы будем
+генерировать токен доступа самостоятельно. Давайте создадим новую фикстуру, которая при
+вызове возвращает токен доступа. Приспособление имеет область модуля, что означает, что оно
+запускается только один раз - при выполнении тестового модуля - и не вызывается при каждом
+вызове функции. Добавьте следующий код:
+@pytest.fixtur(scope="module")
+async def access_token()->str:
+	return create_access_token("@testuser@packt.com")
+
+Давайте создадим новый прибор, который добавляет событие в базу данных. Это действие выполняется
+для запуска предварительных тестов перед тестированием конечных точек CRUD. Добавьте
+следующий код:
+
+@pytest.fixture(scope="module")
+async def mock_event()->Event:
+	new_event = Event(
+		creator="testuser!packt.com",
+		title="FastAPI Book Launch",
+		image="https://linktomyimage.com/image.png",
+		description="We will be discussing the contents of the FastAPI book in this 
+			event.Ensure to come with your own copy to win gifts!",
+		tags=["python", "fastapi", "book", "launch"],
+		location="Google Meet"	
+	)
+	
+	await Event.insert_one(new_event)
+	
+	yield new_event
+
+Тестирование конечных точек READ
+
+Далее давайте напишем тестовую фнкцию, которая проверяет GET-метод HTTP на маршруте /event:
+
+@pytest.mark.asyncio
+async def test_get_events(default_client:httpx.AsyncClient, mock_event:Event)->None:
+	response = await default_client.get("/event/")
+	
+	assert response.status_code==200
+	assert response.json()[0]["_id"]==str(mock_event.id)
+
+В предыдущем блоке кода мы тестируем путь маршрута события, чтобы проверить, присутствует ли
+событие, добавленное в базу данных в фикстуре mock_event. Давайте запустим тест:
+(venv)$pytest tests/test_routes.py
+
+Вот результат:
+
+Далее давайте напишем тестовую функцию для конечной точки /event/{id}:
+
+@pytest.mark.asyncio
+async def test_get_event(default_client: httpx.AsyncClient, mock_event:Event)->None:
+	url=f"/event/{str(mock_event.id)}"
+	response = await default_client.get(url)
+		
+	assert response.status_code == 200
+	assert response.json()["creator"] == mock_event.creator
+	assert response.json()["_id"] == str(mock_event.id)
+
+В предыдущем блоке кода мы тестируем конечную точку, которая извлекает одно событие.
+Переданный идентификатор события извлекается из фикстуры mock_event, а результат запроса
+сравнивается с данными, хранящимися в фикстуре mock_event. Давайте запустим тест:
+
+(venv)$ pytest tests/test_routes.py
+
+Вот результат:
+
+Далее напишем тестовую функцию для создания нового события.
+
+Тестирование конечной точки CREATE
+Мы начнем с определния функции и получения токена доступа из ранее созданного прибора. Мы
+создадим полезную нагрузку запроса, которая будет отправлена на сервер, заголовки запроса, 
+которые будут содержать тип контента, а также значение заголовка авторизации. Также бдет
+определен тестовый ответ, после чего инициируется запрос и сравниваются ответы. Добавьте
+следующий код:
+
+@pytest.mark.asyncio
+async def test_post_event(default_client:httpx.AsyncClient, access_token:str)->None
+	payload={
+		"title": "FastAPI Book Launch",
+		"image": "https://linktomyimage.com/image.png",
+		"description": "We will be discussing the contents of the FastAPI book in this
+			event. Ensure to come with your own copy to win gifts!",
+		"tags":[
+			"python",
+			"fastapi",
+			"book",
+			"launch"
+		],
+		"location": "Google Met",
+	}	
+	headers = {
+		"Content-Type": "application/json",
+		"Authorization": f"Bearer {access_token}"
+	}
+	test_response={
+		"message": "Event crated successfully"
+	}
+	
+	response = await default_client.post("/event/new", json=payload, headers=headers)
+
+	assert response.status_code == 200
+	assert response.json() == test_response
+
+Давайте перезапустим тестовый модуль:
+(venv)$pytest tests/test_routes.py
+
+Результат выглядит так:
+
+Давайте напишем тест для проверки количества событий, хранящихся в базе данных
+(в нашем случае 2). Добавьте следующее:
+
+@pytest.mark.asyncio
+async def test_get_count(default_client:httpx.AsynClient)->None:
+	response = await default_client.get("/event/")
+	events = response.json()
+
+	assert response.status_code == 200
+	assert len(events) == 2
+
+В предыдущем блоке кода мы сохранили ответ JSON в переменной events, длины которой используется
+для нашего тестового сравнения. Давайте перезапустим тестовый модуль:
+(venv)$ pytest tests/test_routes.py
+
+Вот результат:
+
+Мы успешно протестировали конечные точки GET/event and event/{id} и конечную точку POST/event/new,
+соответственно. Давайте проверим конечные точки UPDATE and DELETE для /event/new дальше.
+
+Тестирование конечной точки UPDATE
+Начнем с конечной точки UPDAT:
+
+@pytest.mark.asyncio
+async def test_update_event(default_client: httpx.AsyncClient, mock_event:Event, access_token:str)->None:
+	test_payload = {
+		"title": "Updates FastAPI event"
+	}
+	headers = {
+		"Content-Type": "application/json",
+		"Authorization": f"Bearer {access_token}"
+	}
+	url = f"/event/{str(mock_event.id)}"
+
+	response = await default_client.put(url, json=test_payload,headers=headers)
+	
+	assert response.status_code==200
+	assert response.json()["title"]==test_payload["title"]
+
+В предыдущем блоке кода мы изменяем событие, хранящееся в базе данных, извлекая ID из фикстуры mock_event.
+Затем мы определяем полезную нагрузку запроса и заголовки. В переменной response иницируется
+запрос и сравнивается полученный ответ. Давайте подтвердим, что тест работает правильно:
+
+(venv)$pytest tests/test_routes.py
+Вот результат:
+
+Совет:
+Приспособление mock_event пригодится, поскольку ID документов MongoDB уникально генерируется
+каждый раз. когда документ добавляется в базу данных.
+
+Давайте изменим ожидаемый ответ, чтобы подтвердить достоверность нашего теста:
+assert response.json()["title"] == "This test shoulld fail"
+Повторите тест:
+(venv)$pytest tests/test_routes.py
+
+Вот результат:
+
+Тестирование конечной точки DELETE
+Наконец, давайте напишем тестовую функцию для конечной точки DELETE:
+
+@pytest.mark.asyncio
+async def test_delete_event(default_client:httpx.AsyncClient, mock_event:Event, access_token:str)->None:
+	test_response={
+		"message": "Event deleted successfully."
+	}
+	
+	headers = {
+		"Content-Type": "application/json",
+		"Authorization": f"Bearer {access_token}"
+	}
+
+	url = f"/event/{mock_event.id}"
+	
+	response = await default_client.delete(url, headers=headers)
+	
+	assert response.status_code == 200
+	assert response.json() == test_response
+
+Как и в предыдущих тестах, определяется ожидаемый ответ теста, а также заголовки.
+Маршрут DELETE задействован, и ответ сравнивается. Давайте запустим тест:
+(venv)$pytest tests/test_routes.py
+Вот результат:
+
+Чтобы убедиться, что документ действительно был удален, добавим финальную проверку:
+@pytest.mark.asyncio
+async def test_get_event_again(default_client: httpx.AsynClient, mock_event:Event)->None:
+	url = f"/event/{str(mock_event.id)}"
+	response = await default_client.get(url)
+	
+	assert response.status_code == 200
+	assert response.json()["creator"] == mock_event.creator
+	assert response.json()["_id"] == str(mock_event.id)
+
+Ожидаемый ответ - отказ. Давайте попробуем:
+(venv)$pytest test/test_routes.py
+
+Вот результат:
+
+Как видно из предыдущего снимка экрана, элемент больше не может быть найден в базе данных.
+Теперь, когда вы успешно реализовали тесты для аутентификации и маршрутов событий,
+раскомментируйте код, отвечающий за очистку пользовательских данных из базы данных:
+
+await User.find_all().delete()
+
+Обновите последний тест:
+assert response.status_code == 404
+
+Наконец, давайте запустим все тесты, присутствующие в нашем приложении:
+(venv)$ pytest
+
+Вот результат:
+
+Теперь, когда мы успешно протестировали конечные точки, содержащиеся в API планировщика событий,
+давайте запустим тест покрытия, чтобы определить процент нашего кода, задействованного
+в тестовой операции.
+
+Покрытие тестами
+
+Отчет о покрытии тестами полезен для определения процнета нашего кода, который был выполнен
+в ходе тестирования. Давайте установим модуль coverage, чтобы мы могли измерить, был ли наш
+API адекватно протестирован:
+(venv)$ pip install coverage
+
+Далее давайте создадим отчет о покрытии, выполнив эту команду:
+(venv)$ coverage run -m pytest
+
+Вот результат:
+
+Далее давайте просмотрим отчет, сгенерированный командой coverage run -m pytest. Мы можем
+выбрать просмотр отчета на терминале или на веб-странице, создав отет в формате HTML.
+Мы сделаем оба.
+
+Давайте рассмотрим отчет с терминала:
+(venv)$ coverage report
+
+Вот результат:
+
+Из предыдущего отчета проценты означают количество кода, выполненного и с которым взаимодействовали.
+Давайте создадим HTML-отчет, чтобы мы могли проверить блоки кода, с которыми мы
+взаимодействовали.
+
+Затем откройте htmlcov/index.html в своем браузере.
+
+Давайте проверим отчет о покрытии для routes/events.py. Нажмите на него, чтобы отобразить его.
+
+Резюме.
+В этой главе вы успешно протестировали API, написав тесты для маршрутов аутентификации
+и маршрута CRUD. Вы узнали, чо такое тестирование и как писать тесты pytest, библиотекой 
+быстрого тестирования, созданной для приложений Python. Вы также узнали, что такое фикстуры 
+pytest, и использовали их для создания многократно используемых токенов доступа и объектов базы
+данных, а также для сохранения экземпляра приложения на протяжении всего
+сеанса тестирования. Вы смогли утвердить ответы на ваши HTTP-запросы API и
+проверить поведение вашего API. Наконец, вы научились генерировать отчет о
+покрытии для своих тестов и различать блоки кода, выполняемые во время сеанса
+тестирования.
+Теперь, когда вы получили знания о тестировании веб-API, вы готовы опубликовать
+свое приложение во всемирной паутине через канал развертывания. В следующей и
+последней главе вы узнаете, как контейнеризовать приложение и развернуть его
+локально с помощью Docker и docker-compose.

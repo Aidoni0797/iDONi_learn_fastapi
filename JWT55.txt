@@ -1,0 +1,42 @@
+Наконец, давайте обновим маршрут DELETE:
+
+@event_router.delete("/id")
+async def delete_event(id:PydanticObjectId, user:str=Depends(authenticate)):
+	event = await event_database.get(id)
+	if event.creator != user:
+		raise HTTPException(
+			status_code = status.HTTP_404_NOT_FOUND,
+			detail="Event notfound"
+		)
+
+В предыдущем блоке кода мы указываем функции маршрута сначала проверить, является ли текущий 
+пользователь создателем, в противном случае вызвать исключение. Давайте рассмотрим пример,
+когда другой пользователь пытается удалить событие другого пользователя:
+
+$ curl -X 'DELETE'\
+	'http://0.0.0.0:8080/event/6265a83fc823a3c912830074'\
+	-H 'accept: application/json'\
+	-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXV
+CJ9.eyJ1c2VyIjoiZmFzdGFwaUBwYWNrdC5jb20iLCJleHBpcmVzIjoxNjUwOD
+MzOTc2LjI2NzgzMX0.MMRT6pwEDBVHTU5C1a6MV8j9wCfWhqbza9NBpZz08xE'
+
+Ненайденное событие возвращается в качестве ответа:
+{
+	"detail": "Event not found"
+}
+
+Однако владелец может удалить событие:
+$ curl -X 'DELETE'\
+	'http://0.0.0.0:8080/event/6265a83fc823a3c912830074'\
+	-H 'accept: application/json'\
+	-H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVC
+J9.eyJ1c2VyIjoicmVhZGVyQHBhY2t0LmNvbSIsImV4cGlyZXMiOjE2NTA4MzQz
+OTUuMDkzMDI3fQ.IKYHWQ2YO3rQc-KR8kyfoy_54MsEVE75WbRqoVbdoW0'
+
+Вот ответ:
+{
+	"message": "Event deleted successfullly."
+}
+
+Мы успешно защитили наше приложение и его маршруты. Давайте завершим эту главу, настроив
+промежуточное ПО Cross-Origin Resource Sharing(CORS) в следующем разделе.

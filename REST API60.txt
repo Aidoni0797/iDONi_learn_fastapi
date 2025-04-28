@@ -1,0 +1,84 @@
+Написание тестов для конечных точек REST API
+
+Когда все готово, давайте создадим модуль test_login.py, в котором мы будем тестировать
+маршруты аутентификации:
+(venv)$touch test/test_login.py
+
+В тестовом модуле мы начнем с импорта зависимостей:
+
+import httpx
+import pytest
+
+Тестирование маршрута регистрации
+Первая конечная точка, которую мы будем тестировать - это конечная точка регистрации.
+Мы добавим декоратор pytest.mark.asyncio, который сообщает pytest что нужно рассматривать 
+это как асинхронный тест. Давайте определим функцию и полезную нагрузку запроса:
+
+@pytest.mark.asyncio
+asyn def test_sign_new_user(default_client:httpx.AsyncClient)->None:
+	payload={
+		"email": "testuser@packt.com",
+		"password": "testpassword",
+	}
+
+Определим заголовок запроса и ожидаемый ответ:
+headers = {
+	"accept": "application/json",
+	"Content-Type": "application/json"
+}
+test_response = {
+	"message": "User created successfully"
+}
+
+ТЕперь, когда мы определили ожидаемый ответ на этот вопрос, давайте инициируем запрос
+response = await default_client.post("/user/signup", json=payload, headers=headers)
+
+Далее мы порверим, был ли запрос успешным, сравнив ответы:
+asser response.status_code == 200
+assert response.json() == test_response
+
+Перед запуском этого теста давайте кратко закомментируем строку, которая стирает пользовательские
+данные в conftest.py, поскольку это приведет к сбою аутентифицированных тестов:
+#await User.find_all().delete()
+Со своего терминала запустите сервер MongoDB и запустите тест:
+(venv)$pytest tests/test_login.py
+
+Маршрут регистрации успешно протестирован:
+
+Приступим к написанию теста для маршрута входа. Тем временем вы можете быстро настроить ответ
+теста, чтобы увидеть, не прошел ли ваш тест или нет!
+
+Тестирование маршрута входа
+Ниже теста для маршрута регистрации давайте определим тест для маршрута входа. Мы начнем
+с определения полезной нагурузки запроса и заголовков, прежде чем инициировать запрос,
+как в первом тесте:
+@pytest.mark.asyncio
+asyn def test_sign_user_in(default_client:httpx.AsyncClient)->None:
+	payload={
+		"username": "testuser@packt.com",
+		"password": "testpassword"
+	}
+	headers={
+		"accept": "application/json",
+		"Content-Type": "application/x-www-form-urlencoded"
+	}
+
+Далее мы инициируем запрос и тестируем ответы:
+response = await default_client.post("/user/signin", data=payload, headers=headers)
+
+assert response.status_code==200
+assert response.json()["token_type"]=="Bearer"
+
+Повторим тест:
+(venv)$pytest tests/test_login.py
+
+Давайте изменим имя пользователя для входа на неправильное, чтобы подтвердить, что тест не пройден:
+payload={
+	"username": "wronguser@packt.com",
+	"password": "testpassword"
+}
+Мы успешно написали тесты для маршрутов регистрации и входа. Перейдем к тестированию СRUD-маршрутов
+для API планировщика событий.
+
+
+	
